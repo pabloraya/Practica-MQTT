@@ -1,1 +1,78 @@
+Codigo Esp32
+#include <WiFi.h>
+#include <PubSubClient.h>
 
+// 🔵 DATOS WIFI
+const char* ssid = "TU_WIFI";
+const char* password = "TU_PASSWORD";
+
+// 🔵 BROKER MQTT
+const char* mqtt_server = "broker.hivemq.com";
+
+WiFiClient espClient;
+PubSubClient client(espClient);
+
+void conectarWiFi() {
+  Serial.print("Conectando WiFi");
+  WiFi.begin(ssid, password);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("\nWiFi conectado");
+  Serial.print("IP: ");
+  Serial.println(WiFi.localIP());
+}
+
+void callback(char* topic, byte* message, unsigned int length) {
+  Serial.print("Mensaje recibido en: ");
+  Serial.println(topic);
+
+  String msg;
+  for (int i = 0; i < length; i++) {
+    msg += (char)message[i];
+  }
+
+  Serial.print("Mensaje: ");
+  Serial.println(msg);
+}
+
+void conectarMQTT() {
+  while (!client.connected()) {
+    Serial.print("Conectando a MQTT...");
+
+    if (client.connect("ESP32_Andre")) {
+      Serial.println("Conectado!");
+      client.subscribe("prueba/comando"); // se suscribe
+    } else {
+      Serial.print("Error, rc=");
+      Serial.print(client.state());
+      Serial.println(" intentando en 5 seg");
+      delay(5000);
+    }
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+
+  conectarWiFi();
+
+  client.setServer(mqtt_server, 1883);
+  client.setCallback(callback);
+}
+
+void loop() {
+  if (!client.connected()) {
+    conectarMQTT();
+  }
+
+  client.loop();
+
+  // 📤 PUBLICAR MENSAJE CADA 3 SEGUNDOS
+  client.publish("prueba/mensaje", "Hola desde ESP32");
+
+  delay(3000);
+}
